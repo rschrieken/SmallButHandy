@@ -1,7 +1,7 @@
  // ==UserScript==
 // @name         Check if comment and answer exist
 // @namespace    http://meta.stackexchange.com/users/158100/rene
-// @version      0.3
+// @version      1.1
 // @description  Show a message if the answer or comment in the hash of the url doesn't exist
 // @author       rene
 // @match        *://*.stackexchange.com/questions/*
