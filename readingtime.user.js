@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Add reading time
 // @namespace   https://meta.stackexchange.com/users/158100/rene
-// @version      0.1
+// @version      0.2
 // @description  adds reading time to each question and answer
 // @author       rene
 // @match        https://*.stackoverflow.com/questions/*
@@ -38,7 +38,8 @@
         $(this)
             .prepend(
                 $('<span>')
-                    .text(minutes + ' ' + minutelabel +' reading time')
+                    .text(minutes + ' min read')
+                    .prop('title', minutes + ' ' + minutelabel +' reading time')
                     .addClass('label-key')
         );
     });
