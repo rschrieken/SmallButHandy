@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Unprotect questions
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.1
+// @version      0.2
 // @description  Unprotect questions in a batch
 // @author       rene
 // @match        https://*.stackexchange.com/tools/protected-questions
@@ -116,6 +116,7 @@
             start.disabled = true;
         });
         unprotectBtn = addButton('unprotect', function() {
+            unprotectBtn.disabled = true; // we don't want to fire multiple times
             // get all protected questions that are selected
             var work = questionsToUnprotect.filter( (i) => i.selected);
             // to prevent throttle, go over them every 5 seconds
@@ -123,7 +124,7 @@
                 var item = work.shift();
                 if (item === null || item === undefined) {
                     clearInterval(item);
-                    unprotectBtn.disabled = true;
+                    start.disabled = false;
                 } else {
                     if (item.selected) {
                       unprotect(item.questionid, function() {
