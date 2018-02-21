@@ -13,6 +13,6 @@
 
     var url = document.location.pathname.split('/');
     if (url.length >2) {
-        $('.fl select option[value^="/' + url[1]+'/'+ url[2] + '/"').prop('selected','selected');
+        $('.fl select option[value^="/' + url[1]+'/'+ url[2] + '/"]').prop('selected','selected');
     }
 })();
