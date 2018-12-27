@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         show chars left in a title
-// @namespace    http://tampermonkey.net/
+// @namespace    https://meta.stackexchange.com/users/158100/rene
 // @version      0.1
 // @description  add chars left / used on a title
 // @author       rene
