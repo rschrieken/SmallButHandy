@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Unprotect questions
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.2
+// @version      0.3
 // @description  Unprotect questions in a batch
 // @author       rene
-// @match        https://*.stackexchange.com/tools/protected-questions
+// @match        https://*.stackexchange.com/tools/protected-questions*
 // @grant        none
 // ==/UserScript==
 
@@ -12,7 +12,7 @@
     'use strict';
 
     // this determines which question to select, available fields are: 'title','questionDate','displayname','protectedDate','answerCount','deletedCount'
-    const filter = (i) => i.protectedDate < Date.parse('2017-11-01') && i.displayname === 'rene';
+    const filter = (i) =>  i.protectedDate < Date.parse('2017-11-01'); // && i.displayname === 'rene';
 
 
     // I need the question id, so regex it out of the url
@@ -52,7 +52,7 @@
     }
 
     function search(filter) {
-        var questions = document.getElementById('questions').querySelectorAll('tbody')[0].children;
+        var questions = document.getElementById('content').querySelectorAll('tbody')[0].children;
         var qlist = [],
             selected =[];
 
