@@ -44,7 +44,8 @@
                 } else {
                     showMessage(document.getElementById('comment-'+ ids[0]), 'comment');
                 }
-            } else {
+            // Make sure the hash is not the ID of the question.
+            } else if (window.location.pathname.indexOf('/questions/' + cleanHash) !== 0) {
                 if (!isNaN(Number.parseInt(cleanHash, 10))) {
                     showMessage(document.getElementById('answer-' + cleanHash), 'answer');
                 }
