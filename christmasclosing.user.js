@@ -4,7 +4,7 @@
 // @version      0.5
 // @description  add span and css to give a better indication for closed questions
 // @author       rene
-// @downloadURL  https://github.com/rschrieken/SmallButHandy/christmasclosing.user.js
+// @downloadURL  https://github.com/rschrieken/SmallButHandy/raw/master/christmasclosing.user.js
 // @match        https://stackoverflow.com/questions
 // @match        https://stackoverflow.com/questions/tagged/*
 // @match        https://stackoverflow.com/search?*
