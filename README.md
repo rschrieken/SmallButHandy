@@ -8,6 +8,6 @@ When you follow a link to a comment or answer you might end-up being confused if
 
 
 ### Hightlight closed question
-In search page get a color indication that a question is closed  
+In the search page get a color indication that a question is closed  
 [source](https://github.com/rschrieken/SmallButHandy/blob/master/christmasclosing.user.js) | [Stack Apps](https://stackapps.com/q/9032) | [MSO](https://meta.stackoverflow.com/a/345330)
  
