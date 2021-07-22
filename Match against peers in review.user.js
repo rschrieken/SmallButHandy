@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Match against peers in review
 // @namespace    http://stackoverflow.com/users/578411/rene
-// @version      0.4
+// @version      0.6
 // @description  how you reviewed against your peers
 // @author       rene
 // @match        *://stackoverflow.com/review/*/history*
