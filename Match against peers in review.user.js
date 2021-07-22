@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Match against peers in review
 // @namespace    http://stackoverflow.com/users/578411/rene
-// @version      0.6
+// @version      0.7
 // @description  how you reviewed against your peers
 // @author       rene
 // @match        *://stackoverflow.com/review/*/history*
@@ -12,7 +12,7 @@
 (function ($, window) {
 	"use strict";
     var tasks = [],
-        intervalTime = 200, // 200ms (make this larger when throttled often)
+        intervalTime = 500, // 200ms (make this larger when throttled often)
         per = 90000, // milliseconds
         penalty = 60000, // msec to wait after 503
         rate = 150, // per 90000 milliseconds  (make this smaller when throttled often, but on 80 you're safe )
@@ -24,7 +24,7 @@
 			var a = $(this);
 			tasks.push(a);
 			a.parent().append($('<span class="match" style="float:right; padding-right:20px; "></span>').html('&hellip;'));
-			//if (tasks.length > 20) {return false; }
+			// if (tasks.length > 30) {return false; }
 		});
 	}
 
@@ -47,7 +47,7 @@
         var	index,
 			outcome;
 
-        if (instruction.hasClass('review-results')) {
+        if (instruction.find('b').length > 0) { //  review-results
             outcome = instruction.find('b').text();
             index = find(outcomes, outcome);
             if (index === -1) {
@@ -62,13 +62,24 @@
     // with outcomes and it's number of occurences
 	function handleInstructions(instructions) {
 	    var i,
+            ul,
+            handled = false,
 			outcomes = [];
 
-        // stangely enough instructions doesn't behave fully as a
-        // jquery object, hence the juggling here
-		for (i = 0; i < instructions.length; i = i + 1) {
-			handleInstruction($(instructions[i]), outcomes);
-		}
+        ul = $(instructions).find('ul > li');
+        ul.each(function(i) {
+            var t = this;
+            handleInstruction($(t), outcomes);
+            handled =true;
+        });
+
+        if (!handled) {
+            // stangely enough instructions doesn't behave fully as a
+            // jquery object, hence the juggling here
+            for (i = 0; i < instructions.length; i = i + 1) {
+                handleInstruction($(instructions[i]), outcomes);
+            }
+        }
 		//sort on value
 		return outcomes.sort(function (a, b) {
 			return a.value > b.value ? -1 : a.value === b.value ? 0 : 1;
@@ -116,7 +127,7 @@
             } else if (stats.isUnavailable === true || (stats[0] && stats[0].isUnavailable === true )) {
                 match = { html: ' ', color: 'black'};
             } else {
-                console.log(status[0].textContent);
+                //console.log(status[0].textContent);
                 match = { html: '?', color: 'black'};
             }
         }
