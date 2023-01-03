@@ -16,3 +16,9 @@ jobs:
 
       - name: Build Excerpt
         run: npm run build:exc
+        
+      - name: Archive AddExcerptToTitle.user.js
+        uses: actions/upload-artifact@v3
+        with:
+          name: excerpt
+          path: ./AddExcerptToTitle.user.js 
