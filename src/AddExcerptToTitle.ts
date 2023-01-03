@@ -76,80 +76,84 @@
     type APIWorker = { get:APIGetFunction }
     // do a get on the API for the given url
     // and invoke the callback with the JSON result
-    function API():APIWorker {
+    class API implements APIWorker {
 
-        const backlog:Array<{url:string, callback:CallableFunction}> = []
-        let getfunction: APIGetFunction
+        private readonly backlog:Array<{url:string, callback:CallableFunction}> = []
 
-        // simply push the params on the queue
-        function cacheget(url:string, callback:CallableFunction) {
-            backlog.push({ url: url, callback: callback})
+        private getfunction: APIGetFunction = this.realget
+
+        constructor()
+        {
+            // empty 
         }
 
-        // this makes the actual xhr call
-        function realget(url:string, callback:CallableFunction) {
-            const xhr = new XMLHttpRequest()
+        // simply push the params on the queue
+        private cacheget(url:string, callback:CallableFunction) {
+            this.backlog.push({ url: url, callback: callback})
+        }
 
-            // handles pending calls by invoking realget
-            // and resetting the getfunction when 
-            // the backlog is cleared
-            function handleBacklog() {
-                const item = backlog.shift()
-                if (item !== undefined) {
-                    console.log('from cache')
-                    // handle this single item
-                    realget(item.url, item.callback)
-                } 
-                if (backlog.length === 0) {
-                    // if the backlog is empty 
-                    // use realget for the next call
-                    getfunction = realget
-                }
+        // handles pending calls by invoking realget
+        // and resetting the getfunction when 
+        // the backlog is cleared
+        private handleBacklog() {
+            const item = this.backlog.shift()
+            if (item !== undefined) {
+                console.log('from cache')
+                // handle this single item
+                this.realget(item.url, item.callback)
+            } 
+            if (this.backlog.length === 0) {
+                // if the backlog is empty 
+                // use realget for the next call
+                this.getfunction = this.realget
             }
+        }
 
-            xhr.addEventListener('error', function () {
-                console.log(xhr.status)
-            })
+        private handleLoad(callback: CallableFunction, xhr: XMLHttpRequest) {
 
-            xhr.addEventListener('load', function () {
+            const handler = () => {
                 const response = JSON.parse(xhr.responseText)
                 let backoff = response.backoff || 0
                 // backoff received
                 if (backoff > 0) {
                     // start caching calls
                     console.log('backoff recv')
-                    getfunction = cacheget
+                    this.getfunction = this.cacheget
                 }
                 if (response.error_id === 502) {
                     console.log(response.error_message)
-                    getfunction = cacheget
+                    this.getfunction = this.cacheget
                     backoff = 120
                 }
                 // process pending backlog
-                setTimeout(handleBacklog, backoff * 1000)
+                setTimeout(this.handleBacklog, backoff * 1000)
                 // invoke the callback
                 callback(response)
+            }
+            return handler
+        }
+
+        // this makes the actual xhr call
+        private realget(url:string, callback:CallableFunction) {
+            const xhr = new XMLHttpRequest()
+
+            xhr.addEventListener('error', function () {
+                console.log(xhr.status)
             })
+
+            xhr.addEventListener('load', this.handleLoad(callback, xhr))
             xhr.open('GET', url)
             xhr.send()
         }
 
         // calls either xhr or the cache
-        function get(url:string, callback:CallableFunction):void
+        public get(url:string, callback:CallableFunction):void
         {
-            getfunction(url, callback)
-        }
-
-        // initially we start with a realget
-        getfunction = realget
-
-        // return the public api
-        return {
-            get: get
+            this.getfunction(url, callback)
         }
     }
 
-    const SEApi = new (API as any)() as APIWorker // keep an instance
+    const SEApi = new API() as APIWorker // keep an instance
 
     function htmlEncoder(html:string):string | null {
         // html encoding

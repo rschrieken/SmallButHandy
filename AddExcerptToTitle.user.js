@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            Add Excerpt To Title
 // @namespace       https://meta.stackexchange.com/users/158100/rene
-// @version         0.5
+// @version         0.6
 // @description     Add titles to links on the frontpage of an SE site
 // @author          rene
 // @match           https://stackoverflow.com/
@@ -76,52 +76,54 @@
             filter: '!w-2nxYBnAP3ZrgppIq'
         });
     }
-    function API() {
-        const backlog = [];
-        let getfunction;
-        function cacheget(url, callback) {
-            backlog.push({ url: url, callback: callback });
+    class API {
+        constructor() {
+            this.backlog = [];
+            this.getfunction = this.realget;
         }
-        function realget(url, callback) {
-            const xhr = new XMLHttpRequest();
-            function handleBacklog() {
-                const item = backlog.shift();
-                if (item !== undefined) {
-                    console.log('from cache');
-                    realget(item.url, item.callback);
-                }
-                if (backlog.length === 0) {
-                    getfunction = realget;
-                }
+        cacheget(url, callback) {
+            this.backlog.push({ url: url, callback: callback });
+        }
+        handleBacklog() {
+            const item = this.backlog.shift();
+            if (item !== undefined) {
+                console.log('from cache');
+                this.realget(item.url, item.callback);
             }
-            xhr.addEventListener('error', function () {
-                console.log(xhr.status);
-            });
-            xhr.addEventListener('load', function () {
+            if (this.backlog.length === 0) {
+                this.getfunction = this.realget;
+            }
+        }
+        handleLoad(callback, xhr) {
+            const handler = () => {
                 const response = JSON.parse(xhr.responseText);
                 let backoff = response.backoff || 0;
                 if (backoff > 0) {
                     console.log('backoff recv');
-                    getfunction = cacheget;
+                    this.getfunction = this.cacheget;
                 }
                 if (response.error_id === 502) {
                     console.log(response.error_message);
-                    getfunction = cacheget;
+                    this.getfunction = this.cacheget;
                     backoff = 120;
                 }
-                setTimeout(handleBacklog, backoff * 1000);
+                setTimeout(this.handleBacklog, backoff * 1000);
                 callback(response);
+            };
+            return handler;
+        }
+        realget(url, callback) {
+            const xhr = new XMLHttpRequest();
+            xhr.addEventListener('error', function () {
+                console.log(xhr.status);
             });
+            xhr.addEventListener('load', this.handleLoad(callback, xhr));
             xhr.open('GET', url);
             xhr.send();
         }
-        function get(url, callback) {
-            getfunction(url, callback);
+        get(url, callback) {
+            this.getfunction(url, callback);
         }
-        getfunction = realget;
-        return {
-            get: get
-        };
     }
     const SEApi = new API();
     function htmlEncoder(html) {

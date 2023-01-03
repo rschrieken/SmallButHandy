@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            Add Excerpt To Title
 // @namespace       https://meta.stackexchange.com/users/158100/rene
-// @version         0.5
+// @version         0.6
 // @description     Add titles to links on the frontpage of an SE site
 // @author          rene
 // @match           https://stackoverflow.com/
