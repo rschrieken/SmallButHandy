@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            Add Excerpt To Title
 // @namespace       https://meta.stackexchange.com/users/158100/rene
-// @version         0.4
+// @version         0.5
 // @description     Add titles to links on the frontpage of an SE site
 // @author          rene
 // @match           https://stackoverflow.com/
@@ -31,14 +31,29 @@
 
 (function () {
     'use strict';
+    const Server = {
+        host: 'https://api.stackexchange.com',
+        version: '2.3'
+    };
+    const DefaultParams = {
+        key: 'Kdg9mxpgwALz)u5ubehUFw(('
+    };
     function apiBuilder(endpoint, params) {
-        var url = 'https://api.stackexchange.com/2.3/', urlPath = url + endpoint;
-        params.key = 'Kdg9mxpgwALz)u5ubehUFw((';
+        let urlPath = `${Server.host}/${Server.version}/${endpoint}`;
+        params = Object.assign(params, DefaultParams);
         if (params !== undefined) {
-            var query = [];
-            for (var prop in params) {
+            const query = [];
+            for (const prop in params) {
                 if (params.hasOwnProperty(prop)) {
-                    query.push(prop + '=' + encodeURI(params[prop]));
+                    const key = prop;
+                    if (typeof params[key] === 'string') {
+                        const value = params[key];
+                        query.push(prop + '=' + encodeURI(value));
+                    }
+                    else {
+                        const value = params[key];
+                        query.push(prop + '=' + value);
+                    }
                 }
             }
             urlPath = urlPath + '?' + query.join('&');
@@ -62,14 +77,15 @@
         });
     }
     function API() {
-        var backlog = [], getfunction;
+        const backlog = [];
+        let getfunction;
         function cacheget(url, callback) {
             backlog.push({ url: url, callback: callback });
         }
         function realget(url, callback) {
-            var xhr = new XMLHttpRequest();
+            const xhr = new XMLHttpRequest();
             function handleBacklog() {
-                var item = backlog.shift();
+                const item = backlog.shift();
                 if (item !== undefined) {
                     console.log('from cache');
                     realget(item.url, item.callback);
@@ -82,8 +98,8 @@
                 console.log(xhr.status);
             });
             xhr.addEventListener('load', function () {
-                var response = JSON.parse(xhr.responseText);
-                var backoff = response.backoff || 0;
+                const response = JSON.parse(xhr.responseText);
+                let backoff = response.backoff || 0;
                 if (backoff > 0) {
                     console.log('backoff recv');
                     getfunction = cacheget;
@@ -107,26 +123,33 @@
             get: get
         };
     }
-    var SEApi = new API();
+    const SEApi = new API();
+    function htmlEncoder(html) {
+        const text = document.createElement('span');
+        text.innerHTML = html;
+        return text.textContent;
+    }
     function bindMouseOver(api_site_parameter) {
-        $('div.js-post-summary h3 > a').one('mouseover', function (e) {
-            var questionTitleLink = $(this), id = questionTitleLink.parent().parent().parent().prop('id'), idparts = id.split('-');
+        $('div.js-post-summary h3 > a').one('mouseover', function () {
+            const questionTitleLink = $(this), id = questionTitleLink.parent().parent().parent().prop('id'), idparts = id.split('-');
             if (idparts.length > 2) {
                 SEApi.get(apiQuestionBuilder(api_site_parameter, idparts[2]), function (data) {
                     if (data.items && data.items.length > 0) {
-                        var text = document.createElement('span');
-                        text.innerHTML = data.items[0].body_markdown.substring(0, 200);
-                        questionTitleLink.prop('title', text.textContent);
+                        const first = data.items[0];
+                        const excerpt = first.body_markdown.substring(0, 200);
+                        const html = htmlEncoder(excerpt);
+                        questionTitleLink.prop('title', html);
+                    }
+                    else {
+                        questionTitleLink.prop('title', 'no question found');
                     }
                 });
-                $(this).prop('title', 'loading ' + id);
+                questionTitleLink.prop('title', 'loading ' + id);
             }
         });
     }
     function findApiSiteParameter(items) {
-        var i, site;
-        for (i = 0; i < items.length; i = i + 1) {
-            site = items[i];
+        for (const site of items) {
             if (site.site_url.indexOf(document.location.hostname) !== -1) {
                 bindMouseOver(site.api_site_parameter);
                 return site.api_site_parameter;
@@ -135,17 +158,19 @@
         return null;
     }
     function start() {
-        var cachedSites = localStorage.getItem('SE-add-titles');
-        if (cachedSites !== undefined)
-            cachedSites = JSON.parse(cachedSites);
-        var day = 86400000;
-        debugger;
-        if ((cachedSites === undefined || cachedSites === null) || (cachedSites.items) ||
-            (cachedSites.cacheDate && (cachedSites.cacheDate + day) < Date.now())) {
+        const storageKey = 'SE-add-titles';
+        let cachedSites;
+        const addTitles = localStorage.getItem(storageKey);
+        if (addTitles !== null) {
+            cachedSites = JSON.parse(addTitles);
+        }
+        const day = 86400000;
+        if ((cachedSites === undefined || cachedSites === null) ||
+            (cachedSites.cachedDate && (cachedSites.cachedDate + day) < Date.now())) {
             SEApi.get(apiSitesBuilder(), function (data) {
                 if (data.items && data.items.length) {
-                    var site = findApiSiteParameter(data.items);
-                    localStorage.setItem('SE-add-titles', JSON.stringify({ cachedDate: Date.now(), site: site }));
+                    const site = findApiSiteParameter(data.items);
+                    localStorage.setItem(storageKey, JSON.stringify({ cachedDate: Date.now(), site: site }));
                 }
             });
         }
