@@ -20,5 +20,5 @@ jobs:
       - name: Archive AddExcerptToTitle.user.js
         uses: actions/upload-artifact@v3
         with:
-          name: excerpt
+          name: AddExcerptToTitle.user.js
           path: ./AddExcerptToTitle.user.js 
