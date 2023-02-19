@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.1
+// @version      0.2
 // @description  Sorting for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
@@ -13,57 +13,112 @@
 
 (function() {
     'use strict';
-    var flagdateColumn = 5;
-    var table = document.getElementsByTagName('table')[0];
-    var tbody = document.getElementsByTagName('tbody')[0];
-    var theadRow = tbody.firstChild;
-    var thead = document.createElement('thead');
+    const flagdateColumn = 5;
+    const table = document.getElementsByTagName('table')[0];
+    const tbody = document.getElementsByTagName('tbody')[0];
+    const theadRow = tbody.firstChild;
+    const thead = document.createElement('thead');
+    const filter = {};
+
+    function createFilterColumn(currentIndex) {
+        const th = document.createElement('th');
+        const input = document.createElement('input');
+        th.appendChild(input);
+        input.addEventListener('keyup', (ev) => {
+            if (ev.target.value) {
+                filter[currentIndex] = ev.target.value;
+            } else {
+                delete filter[currentIndex]
+            }
+            applyFilter();
+        });
+        return th;
+    }
+
+    function addFilter(){
+        const filterRow = document.createElement('tr');
+        thead.appendChild(filterRow);
+        let index = 0;
+        for(const item of theadRow.childNodes) {
+            filterRow.append(createFilterColumn(index));
+            index++;
+        }
+    }
 
     function addTableHead() {
         tbody.removeChild(theadRow);
         thead.appendChild(theadRow);
         table.insertBefore(thead, tbody);
+        addFilter();
     }
 
     function fixDates() {
         // replace 2/16/2023 8:58:00 PM with YYYY-MM-DD HH:mm.ss
        function zeroPad(val) {
-           var str = '0' + val;
+           const str = '0' + val;
            return str.substring(str.length - 2);
        }
 
-        for(var row of tbody.childNodes) {
-            var td = row.childNodes[flagdateColumn];
+        for(const row of tbody.childNodes) {
+            const td = row.childNodes[flagdateColumn];
             if (td) {
-                var dtm = new Date(td.textContent);
+                const dtm = new Date(td.textContent);
                 td.textContent = `${dtm.getFullYear()}-${zeroPad(dtm.getMonth() + 1)}-${zeroPad(dtm.getDate())} ${zeroPad(dtm.getHours())}:${zeroPad(dtm.getMinutes())}.${zeroPad(dtm.getSeconds())}`
             }
         }
     }
 
-    function sortBodyOnColumn(colIndex, dir) {
-        // lets do this as inefficient as possible
-        var dataRows = [];
-        var sortdir = dir === 'asc'? 1: -1;
-
-        for(var row of tbody.childNodes) {
-            dataRows.push(row);
+    function applyFilterRow(row) {
+        row.classList.remove('filtered');
+        for(const key in filter) {
+            if (row.childNodes[key].textContent.indexOf(filter[key]) === -1 ) {
+                row.classList.add('filtered');
+            }
         }
+    }
 
+    function applyFilter() {
+        for(const row of tbody.childNodes) {
+            if (row.nodeType === 1) {
+                applyFilterRow(row);
+            }
+        }
+    }
+
+    function prepareRowsForSort() {
+        const dataRows = [];
+        for(const row of tbody.childNodes) {
+            if (row.nodeType === 1) {
+                dataRows.push(row);
+            }
+        }
         while( tbody.firstChild) {
             tbody.removeChild(tbody.firstChild)
         }
+        return dataRows;
+    }
+
+    function completeRowsForSort(dataRows) {
+        for(const sortedRow of dataRows) {
+            tbody.appendChild(sortedRow);
+        }
+        applyFilter();
+    }
+
+    function sortBodyOnColumn(colIndex, dir) {
+        // lets do this as inefficient as possible
+        const dataRows = prepareRowsForSort();
+        const sortdir = dir === 'asc'? 1: -1;
 
         function val(tr) {
-            var td = tr.childNodes[colIndex];
-            console.log(td);
+            const td = tr.childNodes[colIndex];
             if (!td) return;
             return td.textContent;
         }
 
-        dataRows.sort( (l,r) => {
-            var left = val(l);
-            var right = val(r);
+        dataRows.sort((l,r) => {
+            const left = val(l);
+            const right = val(r);
             if (left > right) {
                 return sortdir
             }
@@ -71,50 +126,47 @@
                 return -sortdir
             }
             return 0
-
         });
-        for(var sortedRow of dataRows) {
-            tbody.appendChild(sortedRow);
-        }
+        completeRowsForSort(dataRows);
     }
 
     function handleSortColumn(ev) {
-        var col = ev.target
-        var colIndex = 0;
-        for(var targetCol of theadRow.childNodes) {
+        const col = ev.target
+        let colIndex = 0;
+        for(const targetCol of theadRow.childNodes) {
             if (targetCol === col) {
                 break;
             }
             colIndex++;
         }
-        var dir = getSort(colIndex);
+        const dir = getSort(colIndex);
         setSort(colIndex, dir);
         sortBodyOnColumn(colIndex, dir);
     }
 
     function getSort(idx) {
-        var thsort = theadRow.childNodes[idx];
+        const thsort = theadRow.childNodes[idx];
         if (thsort.classList.contains('js-sort-asc')) {
             return 'desc'
         }
         return 'asc'
     }
 
-
     function setSort(idx, dir) {
-        for (var th of theadRow.childNodes) {
+        for (const th of theadRow.childNodes) {
             th.classList.remove('js-sort-asc');
             th.classList.remove('js-sort-desc');
             th.classList.remove('js-sort');
             th.classList.add('js-sort');
         }
-        var thsort = theadRow.childNodes[idx];
+        const thsort = theadRow.childNodes[idx];
         thsort.classList.add('js-sort-' + dir);
     }
 
     function init() {
         addCss();
-        for(var th of theadRow.childNodes) {
+        addTitle();
+        for(const th of theadRow.childNodes) {
             th.addEventListener('click', handleSortColumn)
         }
         addTableHead();
@@ -123,9 +175,16 @@
         fixDates();
     }
 
+    function addTitle() {
+        const head = document.getElementsByTagName('head')[0];
+        const title = document.createElement('title');
+        head.appendChild(title);
+        title.textContent = 'Recent Flags';
+    }
+
     function addCss() {
-        var head = document.getElementsByTagName('head')[0];
-        var css = document.createElement('style');
+        const head = document.getElementsByTagName('head')[0];
+        const css = document.createElement('style');
         head.appendChild(css);
         css.textContent = `
       h1 {font-size: 16px;  }
@@ -135,9 +194,6 @@
       }
       thead tr th:nth-child(6) {
         width: 150px;
-      }
-      th.js-sort::after {
-      padding-left: 10px;
       }
       th.js-sort-asc::after {
          content: '▲';
@@ -153,8 +209,11 @@
         padding-right: 5px;
         border-collapse: collapse;
       }
-      tr {
-      margin-top: 2 px;
+      .filtered {
+         display: none;
+      }
+      thead tr th input {
+        width: 100%;
       }
     `;
     }
