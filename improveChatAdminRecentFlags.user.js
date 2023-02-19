@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.3
+// @version      0.4
 // @description  Sorting for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
 // @match        https://chat.stackoverflow.com/admin/recent-flags
 // @match        https://chat.meta.stackexchange.com/admin/recent-flags
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=stackexchange.com
+// @updateURL    https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
+// @downloadURL  https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
 // @grant        none
 // ==/UserScript==
 
