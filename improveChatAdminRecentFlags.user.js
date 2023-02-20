@@ -1,12 +1,15 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.4
-// @description  Sorting for Chat Admin Recent flags
+// @version      0.5
+// @description  Sorting and filtering for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
 // @match        https://chat.stackoverflow.com/admin/recent-flags
 // @match        https://chat.meta.stackexchange.com/admin/recent-flags
+// @match        https://chat.stackexchange.com/admin
+// @match        https://chat.stackoverflow.com/admin
+// @match        https://chat.meta.stackexchange.com/admin
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=stackexchange.com
 // @updateURL    https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
 // @downloadURL  https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
@@ -14,255 +17,257 @@
 // ==/UserScript==
 
 (function() {
-    'use strict';
-    const idColumn = 0;
-    const flagdateColumn = 5;
-    const roomColumn = 6;
-    const authorColumn = 7;
-    const table = document.getElementsByTagName('table')[0];
-    const tbody = document.getElementsByTagName('tbody')[0];
-    const theadRow = tbody.firstChild;
-    const thead = document.createElement('thead');
-    const filter = {};
+    
+    function recentFlags() {
+        'use strict';
+        const idColumn = 0;
+        const flagdateColumn = 5;
+        const roomColumn = 6;
+        const authorColumn = 7;
+        const table = document.getElementsByTagName('table')[0];
+        const tbody = document.getElementsByTagName('tbody')[0];
+        const theadRow = tbody.firstChild;
+        const thead = document.createElement('thead');
+        const filter = {};
 
-    function createDeletedFilter(currentIndex, th) {
-        if (currentIndex === idColumn) {
-            const check = document.createElement('input');
-            check.setAttribute('type', 'checkbox');
-            check.setAttribute('title', 'only non-deleted');
-            th.appendChild(check);
-            check.addEventListener('change', (ev) => {
-                if (ev.target.checked) {
-                    filter[currentIndex] = { showNonDeleted: true };
-                } else if (filter[currentIndex].showNonDeleted) {
+        function createDeletedFilter(currentIndex, th) {
+            if (currentIndex === idColumn) {
+                const check = document.createElement('input');
+                check.setAttribute('type', 'checkbox');
+                check.setAttribute('title', 'only non-deleted');
+                th.appendChild(check);
+                check.addEventListener('change', (ev) => {
+                    if (ev.target.checked) {
+                        filter[currentIndex] = { showNonDeleted: true };
+                    } else if (filter[currentIndex].showNonDeleted) {
+                        delete filter[currentIndex]
+                    }
+                    applyFilter();
+                });
+            }
+        }
+
+        function createFilterColumn(currentIndex) {
+            const th = document.createElement('th');
+            const input = document.createElement('input');
+            input.setAttribute('placeholder', 'filter');
+            th.appendChild(input);
+            input.addEventListener('keyup', (ev) => {
+                if (ev.target.value) {
+                    filter[currentIndex] = ev.target.value;
+                } else {
                     delete filter[currentIndex]
                 }
                 applyFilter();
             });
+            createDeletedFilter(currentIndex, th);
+            return th;
         }
-    }
 
-    function createFilterColumn(currentIndex) {
-        const th = document.createElement('th');
-        const input = document.createElement('input');
-        input.setAttribute('placeholder', 'filter');
-        th.appendChild(input);
-        input.addEventListener('keyup', (ev) => {
-            if (ev.target.value) {
-                filter[currentIndex] = ev.target.value;
+        function addFilter(){
+            const filterRow = document.createElement('tr');
+            thead.appendChild(filterRow);
+            let index = 0;
+            for(const item of theadRow.childNodes) {
+                filterRow.append(createFilterColumn(index));
+                index++;
+            }
+        }
+
+        function addTableHead() {
+            tbody.removeChild(theadRow);
+            thead.appendChild(theadRow);
+            table.insertBefore(thead, tbody);
+            addFilter();
+        }
+
+        function fixDates() {
+            // replace 2/16/2023 8:58:00 PM with YYYY-MM-DD HH:mm.ss
+            function zeroPad(val) {
+                const str = '0' + val;
+                return str.substring(str.length - 2);
+            }
+
+            for(const row of tbody.childNodes) {
+                const td = row.childNodes[flagdateColumn];
+                if (td) {
+                    const dtm = new Date(td.textContent);
+                    td.textContent = `${dtm.getFullYear()}-${zeroPad(dtm.getMonth() + 1)}-${zeroPad(dtm.getDate())} ${zeroPad(dtm.getHours())}:${zeroPad(dtm.getMinutes())}.${zeroPad(dtm.getSeconds())}`
+                }
+            }
+        }
+
+        function applyConditionalFormatting() {
+            const cols = [roomColumn, authorColumn];
+            for(const col of cols) {
+                const valueCounts = {};
+                let total = 0;
+                for(const row of tbody.childNodes) {
+                    const td = row.childNodes[col];
+                    if (td) {
+                        if (valueCounts[td.textContent]) {
+                            if (valueCounts[td.textContent] === 1 ){
+                                total = total + 1;
+                            }
+                            valueCounts[td.textContent] = valueCounts[td.textContent] + 1;
+                        } else {
+                            valueCounts[td.textContent] = 1;
+                        }
+                    }
+                }
+                for(const row of tbody.childNodes) {
+                    const td = row.childNodes[col];
+                    if (td) {
+                        var count = valueCounts[td.textContent];
+                        if (count > 1 && total > 1) {
+                            var perc = Math.round(count / total * 100);
+                            var rp = (100-perc);
+                            var yp = (100-perc) / 2;
+                            var wp = (100-perc) / 4;
+                            td.style.background = `linear-gradient(to right, white ${wp}%, yellow ${yp}%, red ${rp}%)`
+                        }
+                    }
+                }
+            }
+        }
+
+        function applyFilterForColumn(key, col) {
+            if (key === idColumn.toString() && filter[key].showNonDeleted) {
+                const link = col.firstChild;
+                if (link.getAttribute('href').indexOf('/history') !== -1) {
+                    return true;
+                }
             } else {
-                delete filter[currentIndex]
+                let sourceText;
+                if (col.hasChildNodes()) {
+                    sourceText = col.innerHTML;
+                } else {
+                    sourceText = col.textContent;
+                }
+                return sourceText.indexOf(filter[key]) === -1;
+            }
+            return false;
+        }
+
+        function applyFilterRow(row) {
+            row.classList.remove('filtered');
+            for(const key in filter) {
+                if (applyFilterForColumn(key, row.childNodes[key])) {
+                    row.classList.add('filtered');
+                }
+            }
+        }
+
+        function applyFilter() {
+            for(const row of tbody.childNodes) {
+                if (row.nodeType === 1) {
+                    applyFilterRow(row);
+                }
+            }
+        }
+
+        function prepareRowsForSort() {
+            const dataRows = [];
+            for(const row of tbody.childNodes) {
+                if (row.nodeType === 1) {
+                    dataRows.push(row);
+                }
+            }
+            while( tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild)
+            }
+            return dataRows;
+        }
+
+        function completeRowsForSort(dataRows) {
+            for(const sortedRow of dataRows) {
+                tbody.appendChild(sortedRow);
             }
             applyFilter();
-        });
-        createDeletedFilter(currentIndex, th);
-        return th;
-    }
-
-    function addFilter(){
-        const filterRow = document.createElement('tr');
-        thead.appendChild(filterRow);
-        let index = 0;
-        for(const item of theadRow.childNodes) {
-            filterRow.append(createFilterColumn(index));
-            index++;
         }
-    }
 
-    function addTableHead() {
-        tbody.removeChild(theadRow);
-        thead.appendChild(theadRow);
-        table.insertBefore(thead, tbody);
-        addFilter();
-    }
+        function sortBodyOnColumn(colIndex, dir) {
+            // lets do this as inefficient as possible
+            const dataRows = prepareRowsForSort();
+            const sortdir = dir === 'asc'? 1: -1;
 
-    function fixDates() {
-        // replace 2/16/2023 8:58:00 PM with YYYY-MM-DD HH:mm.ss
-       function zeroPad(val) {
-           const str = '0' + val;
-           return str.substring(str.length - 2);
-       }
-
-        for(const row of tbody.childNodes) {
-            const td = row.childNodes[flagdateColumn];
-            if (td) {
-                const dtm = new Date(td.textContent);
-                td.textContent = `${dtm.getFullYear()}-${zeroPad(dtm.getMonth() + 1)}-${zeroPad(dtm.getDate())} ${zeroPad(dtm.getHours())}:${zeroPad(dtm.getMinutes())}.${zeroPad(dtm.getSeconds())}`
+            function val(tr) {
+                const td = tr.childNodes[colIndex];
+                if (!td) return;
+                return td.textContent;
             }
-        }
-    }
 
-    function applyConditionalFormatting() {
-        const cols = [roomColumn, authorColumn];
-        for(const col of cols) {
-            const valueCounts = {};
-            let total = 0;
-            for(const row of tbody.childNodes) {
-                const td = row.childNodes[col];
-                if (td) {
-                    if (valueCounts[td.textContent]) {
-                        if (valueCounts[td.textContent] === 1 ){
-                            total = total + 1;
-                        }
-                        valueCounts[td.textContent] = valueCounts[td.textContent] + 1;
-                    } else {
-                        valueCounts[td.textContent] = 1;
-                    }
+            dataRows.sort((l,r) => {
+                const left = val(l);
+                const right = val(r);
+                if (left > right) {
+                    return sortdir
                 }
-            }
-            for(const row of tbody.childNodes) {
-                const td = row.childNodes[col];
-                if (td) {
-                    var count = valueCounts[td.textContent];
-                    if (count > 1 && total > 1) {
-                        var perc = Math.round(count / total * 100);
-                        var rp = (100-perc);
-                        var yp = (100-perc) / 2;
-                        var wp = (100-perc) / 4;
-                        td.style.background = `linear-gradient(to right, white ${wp}%, yellow ${yp}%, red ${rp}%)`
-                    }
+                if (left < right) {
+                    return -sortdir
                 }
+                return 0
+            });
+            completeRowsForSort(dataRows);
+        }
+
+        function handleSortColumn(ev) {
+            const col = ev.target
+            let colIndex = 0;
+            for(const targetCol of theadRow.childNodes) {
+                if (targetCol === col) {
+                    break;
+                }
+                colIndex++;
             }
+            const dir = getSort(colIndex);
+            setSort(colIndex, dir);
+            sortBodyOnColumn(colIndex, dir);
         }
-    }
 
-    function applyFilterForColumn(key, col) {
-        if (key === idColumn.toString() && filter[key].showNonDeleted) {
-            const link = col.firstChild;
-            if (link.getAttribute('href').indexOf('/history') !== -1) {
-                return true;
+        function getSort(idx) {
+            const thsort = theadRow.childNodes[idx];
+            if (thsort.classList.contains('js-sort-asc')) {
+                return 'desc'
             }
-        } else {
-            let sourceText;
-            if (col.hasChildNodes()) {
-                sourceText = col.innerHTML;
-            } else {
-                sourceText = col.textContent;
+            return 'asc'
+        }
+
+        function setSort(idx, dir) {
+            for (const th of theadRow.childNodes) {
+                th.classList.remove('js-sort-asc');
+                th.classList.remove('js-sort-desc');
+                th.classList.remove('js-sort');
+                th.classList.add('js-sort');
             }
-            return sourceText.indexOf(filter[key]) === -1;
+            const thsort = theadRow.childNodes[idx];
+            thsort.classList.add('js-sort-' + dir);
         }
-        return false;
-    }
 
-    function applyFilterRow(row) {
-        row.classList.remove('filtered');
-        for(const key in filter) {
-            if (applyFilterForColumn(key, row.childNodes[key])) {
-                row.classList.add('filtered');
+        function init() {
+            addCss();
+            addTitle();
+            for(const th of theadRow.childNodes) {
+                th.addEventListener('click', handleSortColumn)
             }
-        }
-    }
-
-    function applyFilter() {
-        for(const row of tbody.childNodes) {
-            if (row.nodeType === 1) {
-                applyFilterRow(row);
-            }
-        }
-    }
-
-    function prepareRowsForSort() {
-        const dataRows = [];
-        for(const row of tbody.childNodes) {
-            if (row.nodeType === 1) {
-                dataRows.push(row);
-            }
-        }
-        while( tbody.firstChild) {
-            tbody.removeChild(tbody.firstChild)
-        }
-        return dataRows;
-    }
-
-    function completeRowsForSort(dataRows) {
-        for(const sortedRow of dataRows) {
-            tbody.appendChild(sortedRow);
-        }
-        applyFilter();
-    }
-
-    function sortBodyOnColumn(colIndex, dir) {
-        // lets do this as inefficient as possible
-        const dataRows = prepareRowsForSort();
-        const sortdir = dir === 'asc'? 1: -1;
-
-        function val(tr) {
-            const td = tr.childNodes[colIndex];
-            if (!td) return;
-            return td.textContent;
+            addTableHead();
+            setSort(0, 'desc');
+            fixDates();
+            applyConditionalFormatting();
         }
 
-        dataRows.sort((l,r) => {
-            const left = val(l);
-            const right = val(r);
-            if (left > right) {
-                return sortdir
-            }
-            if (left < right) {
-                return -sortdir
-            }
-            return 0
-        });
-        completeRowsForSort(dataRows);
-    }
-
-    function handleSortColumn(ev) {
-        const col = ev.target
-        let colIndex = 0;
-        for(const targetCol of theadRow.childNodes) {
-            if (targetCol === col) {
-                break;
-            }
-            colIndex++;
+        function addTitle() {
+            const head = document.getElementsByTagName('head')[0];
+            const title = document.createElement('title');
+            head.appendChild(title);
+            title.textContent = 'Recent Flags';
         }
-        const dir = getSort(colIndex);
-        setSort(colIndex, dir);
-        sortBodyOnColumn(colIndex, dir);
-    }
 
-    function getSort(idx) {
-        const thsort = theadRow.childNodes[idx];
-        if (thsort.classList.contains('js-sort-asc')) {
-            return 'desc'
-        }
-        return 'asc'
-    }
-
-    function setSort(idx, dir) {
-        for (const th of theadRow.childNodes) {
-            th.classList.remove('js-sort-asc');
-            th.classList.remove('js-sort-desc');
-            th.classList.remove('js-sort');
-            th.classList.add('js-sort');
-        }
-        const thsort = theadRow.childNodes[idx];
-        thsort.classList.add('js-sort-' + dir);
-    }
-
-    function init() {
-        addCss();
-        addTitle();
-        for(const th of theadRow.childNodes) {
-            th.addEventListener('click', handleSortColumn)
-        }
-        addTableHead();
-        setSort(0, 'desc');
-        fixDates();
-        applyConditionalFormatting();
-    }
-
-    function addTitle() {
-        const head = document.getElementsByTagName('head')[0];
-        const title = document.createElement('title');
-        head.appendChild(title);
-        title.textContent = 'Recent Flags';
-    }
-
-    function addCss() {
-        const head = document.getElementsByTagName('head')[0];
-        const css = document.createElement('style');
-        head.appendChild(css);
-        css.textContent = `
+        function addCss() {
+            const head = document.getElementsByTagName('head')[0];
+            const css = document.createElement('style');
+            head.appendChild(css);
+            css.textContent = `
       h1 {font-size: 16px;  }
       table {font-size: 14px; border-collapse: collapse;}
       th:hover {
@@ -318,7 +323,25 @@
         opacity: 0.5;
       }
     `;
+        }
+
+        init();
     }
 
-    init();
+    function initAdmin(){
+        const content = document.getElementById('content')
+        const ul = content.querySelector('div > ul')
+        const li = document.createElement('li')
+        const a = document.createElement('a')
+        a.setAttribute('href', '/admin/recent-flags')
+        a.textContent = 'recent flags'
+        li.appendChild(a)
+        ul.appendChild(li)
+    }
+
+    if (document.location.pathname.endsWith('/admin/recent-flags')) {
+        recentFlags()
+    } else if (document.location.pathname.endsWith('/admin')) {
+        initAdmin()
+    }
 })();
