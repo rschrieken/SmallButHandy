@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         christmas tree for on hold and closed questions
 // @namespace    https://stackoverflow.com/users/578411/rene
-// @version      0.5
+// @version      0.6
 // @description  add span and css to give a better indication for closed questions
 // @author       rene
 // @downloadURL  https://github.com/rschrieken/SmallButHandy/raw/master/christmasclosing.user.js
+// @updateURL    https://github.com/rschrieken/SmallButHandy/raw/master/christmasclosing.user.js
 // @match        https://stackoverflow.com/questions
 // @match        https://stackoverflow.com/questions/tagged/*
 // @match        https://stackoverflow.com/search?*
@@ -64,7 +65,7 @@
     var observer;
 
     // add css class to control how [On Hold] and [Closed] should look like
-    $('head').append('<style>a.question-hyperlink > span { color:red; } div.result-link > h3 > a > span { color:red; } </style>');
+    $('head').append('<style>.js-post-summary div:not(.js-post-summary-stats) h3 a > span { color:red; }</style>');
 
     function decorate(anchor) {
         // https://regex101.com/r/VLjRca/1/
@@ -76,28 +77,18 @@
 
     function decorateQuestionLinks() {
         // each link
-        $('a.question-hyperlink').each(function() {
+        $('.js-post-summary div:not(.js-post-summary-stats) h3 a').each(function() {
             decorate($(this));
         });
     }
 
-    function decorateSearchResults() {
-        // each search result link
-        $('.result-link h3 a').each(function() {
-             decorate($(this));
-        });
-    }
-
     // initial page
+    decorateQuestionLinks();
     if (document.location.pathname.indexOf('/search') === -1) {
         // we're not on search
-        decorateQuestionLinks();
         // new nav pages get loaded by ajax calls and replace a dom node
         observer = new MutationObserver(function (recs) { decorateQuestionLinks(); });
         // observe new nav
-        observer.observe(document.getElementById('qlist-wrapper'), { childList:true});
-    } else {
-        decorateSearchResults();
+        observer.observe(document.getElementById('content'), { childList:true});
     }
-
 })();
