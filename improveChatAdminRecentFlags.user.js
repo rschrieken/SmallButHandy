@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.5
+// @version      0.6
 // @description  Sorting and filtering for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
@@ -17,7 +17,7 @@
 // ==/UserScript==
 
 (function() {
-    
+
     function recentFlags() {
         'use strict';
         const idColumn = 0;
@@ -245,6 +245,7 @@
         }
 
         function init() {
+            addMetaCharset();
             addCss();
             addTitle();
             for(const th of theadRow.childNodes) {
@@ -256,17 +257,25 @@
             applyConditionalFormatting();
         }
 
+        function appendToHead(element) {
+            document.getElementsByTagName('head')[0].appendChild(element)
+        }
+
         function addTitle() {
-            const head = document.getElementsByTagName('head')[0];
             const title = document.createElement('title');
-            head.appendChild(title);
+            appendToHead(title);
             title.textContent = 'Recent Flags';
         }
 
+        function addMetaCharset() {
+            const meta = document.createElement('meta');
+            meta.setAttribute('charset', 'utf-8');
+            appendToHead(meta);
+        }
+
         function addCss() {
-            const head = document.getElementsByTagName('head')[0];
             const css = document.createElement('style');
-            head.appendChild(css);
+            appendToHead(css);
             css.textContent = `
       h1 {font-size: 16px;  }
       table {font-size: 14px; border-collapse: collapse;}
