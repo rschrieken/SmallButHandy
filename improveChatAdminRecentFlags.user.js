@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.7
+// @version      0.8
 // @description  Sorting and filtering for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
@@ -376,13 +376,18 @@
             }
         }
 
-        function replaceCellWithLink(cell, href, text) {
+        function replaceCellWithLink(cell, href, text, title) {
             const link = document.createElement('a');
             link.textContent = text;
             link.href = href
             link.target = '_blank';
             cell.removeChild(cell.firstChild)
             cell.appendChild(link);
+            if (title) {
+                title.then((text) => {
+                    link.title = text;
+                });
+            }
         }
 
         function decorateRows() {
@@ -394,13 +399,60 @@
             }
         }
 
+        function buildRoomInfoPromise(roomId) {
+
+            const roomKey = `improveChatAdminRecentFlags-${roomId}`;
+            const fetchKey = `improveChatAdminRecentFlags-${roomId}-fetching`;
+
+            return new Promise((resolve)=> {
+
+                function tryAndResolveRoomTitle() {
+                    const cachedRoomTitle = sessionStorage.getItem(roomKey);
+                    if (cachedRoomTitle) {
+                        resolve(cachedRoomTitle);
+                        return true;
+                    }
+                    return false;
+                }
+
+                function parseStoreAndResolveRoomTitle(html) {
+                    const info = document.createElement('chr');
+                    info.innerHTML= html;
+                    const fetchedRoomTitle = info.querySelector('h1').textContent;
+                    sessionStorage.setItem(roomKey, fetchedRoomTitle);
+                    resolve(fetchedRoomTitle);
+                }
+
+                const isRoomTitleFetching = sessionStorage.getItem(fetchKey);
+                if (isRoomTitleFetching) {
+                    const interval = setInterval(() => {
+                        if (tryAndResolveRoomTitle()) {
+                            clearInterval(interval);
+                        }
+                    }, 50);
+                } else {
+                    if (!tryAndResolveRoomTitle()) {
+                        sessionStorage.setItem(fetchKey, true);
+                        fetch(`/rooms/info/${roomId}?tab=general`)
+                            .then((response)=> response.text())
+                            .then((html)=> {
+                               parseStoreAndResolveRoomTitle(html);
+                               sessionStorage.removeItem(fetchKey);
+                        });
+                    }
+                }
+            });
+        }
+
         function decorateRoomId(row) {
             // having #RoomId on all cells is out-of-spec for HTML 5.
             // but we (ab)use it here to our advantage
             // RoomId is the 4th column in case this ever needs fixing
             const roomCell = row.querySelector('#RoomId');
             if (roomCell) {
-                replaceCellWithLink(roomCell, '/rooms/info/' + roomCell.textContent, roomCell.textContent);
+                const roomId = roomCell.textContent;
+                const roomTitle = buildRoomInfoPromise(roomId);
+                replaceCellWithLink(roomCell, '/rooms/info/' + roomId, roomId, roomTitle);
             }
         }
 
