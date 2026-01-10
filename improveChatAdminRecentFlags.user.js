@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.6
+// @version      0.7
 // @description  Sorting and filtering for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
@@ -10,6 +10,9 @@
 // @match        https://chat.stackexchange.com/admin
 // @match        https://chat.stackoverflow.com/admin
 // @match        https://chat.meta.stackexchange.com/admin
+// @match        https://chat.stackexchange.com/users/get-messages/*
+// @match        https://chat.stackoverflow.com/users/get-messages/*
+// @match        https://chat.meta.stackexchange.com/users/get-messages/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=stackexchange.com
 // @updateURL    https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
 // @downloadURL  https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
@@ -348,9 +351,87 @@
         ul.appendChild(li)
     }
 
+    function initGetMessages() {
+        function addStyle() {
+            const style = document.createElement('style');
+            style.textContent = `
+              .s-table td:nth-child(3) { word-break: break-all;}
+              .s-table-container {padding-right: 2px;}
+             `;
+            document.head.appendChild(style);
+        }
+
+        function replaceHeaders() {
+            const headersMap = {
+                'Parent Message Id': 'Parent Id',
+                'Mod Flag Count': '#Flags'
+            };
+
+            const headers = document.querySelectorAll('.s-table > thead > tr > th > button');
+            for(const hdr of headers) {
+                const value = headersMap[hdr.textContent.trim()];
+                if (value) {
+                    hdr.textContent = value;
+                }
+            }
+        }
+
+        function replaceCellWithLink(cell, href, text) {
+            const link = document.createElement('a');
+            link.textContent = text;
+            link.href = href
+            link.target = '_blank';
+            cell.removeChild(cell.firstChild)
+            cell.appendChild(link);
+        }
+
+        function decorateRows() {
+            const rows = document.querySelectorAll('.s-table > tbody > tr');
+            for(const row of rows) {
+                decorateCreationDate(row);
+                decorateRoomId(row);
+                decorateParentId(row);
+            }
+        }
+
+        function decorateRoomId(row) {
+            // having #RoomId on all cells is out-of-spec for HTML 5.
+            // but we (ab)use it here to our advantage
+            // RoomId is the 4th column in case this ever needs fixing
+            const roomCell = row.querySelector('#RoomId');
+            if (roomCell) {
+                replaceCellWithLink(roomCell, '/rooms/info/' + roomCell.textContent, roomCell.textContent);
+            }
+        }
+
+        function decorateCreationDate(row) {
+            // CreationDate is the 2nd column
+            const creationDateCell = row.querySelector('#CreationDate');
+            // SelectItem is the 1st column, it has an input element with a value propety set to the chat messageId
+            const selectItemCellInput = row.querySelector('#SelectItem > input[name="select-item"]');
+            if (creationDateCell && selectItemCellInput) {
+                replaceCellWithLink(creationDateCell, '/transcript/message/' + selectItemCellInput.value, creationDateCell.textContent);
+            }
+        }
+
+        function decorateParentId(row) {
+            // ParentId is the 5th column
+            const parentIdCell = row.querySelector('#ParentId');
+            if (parentIdCell && parentIdCell.textContent) {
+                replaceCellWithLink(parentIdCell, '/transcript/message/' + parentIdCell.textContent, parentIdCell.textContent);
+            }
+        }
+
+        addStyle();
+        replaceHeaders();
+        decorateRows();
+    }
+
     if (document.location.pathname.endsWith('/admin/recent-flags')) {
         recentFlags()
     } else if (document.location.pathname.endsWith('/admin')) {
         initAdmin()
+    } else if (document.location.pathname.indexOf('/users/get-messages/') === 0) {
+        initGetMessages()
     }
 })();
