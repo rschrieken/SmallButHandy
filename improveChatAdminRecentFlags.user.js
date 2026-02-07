@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.8
+// @version      0.9
 // @description  Sorting and filtering for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
@@ -10,9 +10,9 @@
 // @match        https://chat.stackexchange.com/admin
 // @match        https://chat.stackoverflow.com/admin
 // @match        https://chat.meta.stackexchange.com/admin
-// @match        https://chat.stackexchange.com/users/get-messages/*
-// @match        https://chat.stackoverflow.com/users/get-messages/*
-// @match        https://chat.meta.stackexchange.com/users/get-messages/*
+// @match        https://chat.stackexchange.com/users/*/*
+// @match        https://chat.stackoverflow.com/users/*/*
+// @match        https://chat.meta.stackexchange.com/users/*/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=stackexchange.com
 // @updateURL    https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
 // @downloadURL  https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
@@ -20,6 +20,24 @@
 // ==/UserScript==
 
 (function() {
+
+     const knownPaths = {
+        admin:'/admin',
+        recentFlags: '/admin/recent-flags',
+        getMessages: '/users/get-messages/',
+        roomsInfo: '/rooms/info/',
+        transcriptMessage: '/transcript/message/'
+    }
+
+    function appendToHead(element) {
+        document.getElementsByTagName('head')[0].appendChild(element)
+    }
+
+    function appendCss(cssText) {
+        const css = document.createElement('style');
+        appendToHead(css);
+        css.textContent = cssText;
+    }
 
     function recentFlags() {
         'use strict';
@@ -87,15 +105,24 @@
         function fixDates() {
             // replace 2/16/2023 8:58:00 PM with YYYY-MM-DD HH:mm.ss
             function zeroPad(val) {
-                const str = '0' + val;
-                return str.substring(str.length - 2);
+                return val.toString().padStart(2, '0');
+            }
+
+            function toDateString(anyDate) {
+                const yearIndex = 0;
+                const monthIndex = 1;
+                var dtm = ['getFullYear','getMonth', 'getDate', 'getHours', 'getMinutes', 'getSeconds'].reduce((dateValue, dateFunction, i) => {
+                    const value = anyDate[dateFunction]() + (i === monthIndex ? 1: 0);
+                    dateValue[dateFunction.substring(3)] = zeroPad(value);
+                    return dateValue;
+                }, {});
+                return `${dtm.FullYear}-${dtm.Month}-${dtm.Date} ${dtm.Hours}:${dtm.Minutes}.${dtm.Seconds}`
             }
 
             for(const row of tbody.childNodes) {
                 const td = row.childNodes[flagdateColumn];
                 if (td) {
-                    const dtm = new Date(td.textContent);
-                    td.textContent = `${dtm.getFullYear()}-${zeroPad(dtm.getMonth() + 1)}-${zeroPad(dtm.getDate())} ${zeroPad(dtm.getHours())}:${zeroPad(dtm.getMinutes())}.${zeroPad(dtm.getSeconds())}`
+                    td.textContent = toDateString(new Date(td.textContent));
                 }
             }
         }
@@ -260,10 +287,6 @@
             applyConditionalFormatting();
         }
 
-        function appendToHead(element) {
-            document.getElementsByTagName('head')[0].appendChild(element)
-        }
-
         function addTitle() {
             const title = document.createElement('title');
             appendToHead(title);
@@ -277,9 +300,7 @@
         }
 
         function addCss() {
-            const css = document.createElement('style');
-            appendToHead(css);
-            css.textContent = `
+           appendCss(`
       h1 {font-size: 16px;  }
       table {font-size: 14px; border-collapse: collapse;}
       th:hover {
@@ -334,7 +355,7 @@
         color:light-grey;
         opacity: 0.5;
       }
-    `;
+    `);
         }
 
         init();
@@ -345,7 +366,7 @@
         const ul = content.querySelector('div > ul')
         const li = document.createElement('li')
         const a = document.createElement('a')
-        a.setAttribute('href', '/admin/recent-flags')
+        a.setAttribute('href', knownPaths.recentFlags)
         a.textContent = 'recent flags'
         li.appendChild(a)
         ul.appendChild(li)
@@ -353,12 +374,10 @@
 
     function initGetMessages() {
         function addStyle() {
-            const style = document.createElement('style');
-            style.textContent = `
+            appendCss(`
               .s-table td:nth-child(3) { word-break: break-all;}
               .s-table-container {padding-right: 2px;}
-             `;
-            document.head.appendChild(style);
+             `);
         }
 
         function replaceHeaders() {
@@ -377,17 +396,30 @@
         }
 
         function replaceCellWithLink(cell, href, text, title) {
-            const link = document.createElement('a');
-            link.textContent = text;
-            link.href = href
-            link.target = '_blank';
-            cell.removeChild(cell.firstChild)
-            cell.appendChild(link);
-            if (title) {
-                title.then((text) => {
-                    link.title = text;
-                });
+
+            function decorateLinkTitle(link, title) {
+                if (title) {
+                    if (typeof title === 'string') {
+                        link.title = title;
+                    } else {
+                        title.then((text) => {
+                            link.title = text;
+                        });
+                    }
+                }
+                return link;
             }
+
+            function createLink(text, href) {
+                const link = document.createElement('a');
+                link.textContent = text;
+                link.href = href
+                link.target = '_blank';
+                return link;
+            }
+
+            cell.removeChild(cell.firstChild)
+            cell.appendChild(decorateLinkTitle(createLink(text, href), title));
         }
 
         function decorateRows() {
@@ -404,6 +436,11 @@
             const roomKey = `improveChatAdminRecentFlags-${roomId}`;
             const fetchKey = `improveChatAdminRecentFlags-${roomId}-fetching`;
 
+            const cachedRoomTitle = sessionStorage.getItem(roomKey);
+            if (cachedRoomTitle) {
+                return cachedRoomTitle;
+            }
+
             return new Promise((resolve)=> {
 
                 function tryAndResolveRoomTitle() {
@@ -415,10 +452,26 @@
                     return false;
                 }
 
-                function parseStoreAndResolveRoomTitle(html) {
+                function parseRoomTitle(html) {
                     const info = document.createElement('chr');
                     info.innerHTML= html;
-                    const fetchedRoomTitle = info.querySelector('h1').textContent;
+                    let title = info.querySelector('h1').textContent;
+
+                    function getRoomType(info) {
+                        const roomTypeSpan = info.querySelector('#content .roomcard-xxl h1 span.sprite');
+                        let roomType = '';
+                        if (roomTypeSpan) {
+                            const specialRoom = Array.from(roomTypeSpan.classList).reduce((a,i)=> a?a:i.startsWith('sprite-sec-')?i:a, '').split('-');
+                            roomType = (specialRoom.length >1 ? ` (${specialRoom[2]})` : '')
+                        }
+                        return roomType
+                    }
+
+                    return title + getRoomType(info);
+                }
+
+                function parseStoreAndResolveRoomTitle(html) {
+                    const fetchedRoomTitle = parseRoomTitle(html);
                     sessionStorage.setItem(roomKey, fetchedRoomTitle);
                     resolve(fetchedRoomTitle);
                 }
@@ -433,7 +486,7 @@
                 } else {
                     if (!tryAndResolveRoomTitle()) {
                         sessionStorage.setItem(fetchKey, true);
-                        fetch(`/rooms/info/${roomId}?tab=general`)
+                        fetch(`${knownPaths.roomsInfo}${roomId}?tab=general`)
                             .then((response)=> response.text())
                             .then((html)=> {
                                parseStoreAndResolveRoomTitle(html);
@@ -452,7 +505,7 @@
             if (roomCell) {
                 const roomId = roomCell.textContent;
                 const roomTitle = buildRoomInfoPromise(roomId);
-                replaceCellWithLink(roomCell, '/rooms/info/' + roomId, roomId, roomTitle);
+                replaceCellWithLink(roomCell, knownPaths.roomsInfo + roomId, roomId, roomTitle);
             }
         }
 
@@ -462,7 +515,7 @@
             // SelectItem is the 1st column, it has an input element with a value propety set to the chat messageId
             const selectItemCellInput = row.querySelector('#SelectItem > input[name="select-item"]');
             if (creationDateCell && selectItemCellInput) {
-                replaceCellWithLink(creationDateCell, '/transcript/message/' + selectItemCellInput.value, creationDateCell.textContent);
+                replaceCellWithLink(creationDateCell, knownPaths.transcriptMessage + selectItemCellInput.value, creationDateCell.textContent);
             }
         }
 
@@ -470,7 +523,7 @@
             // ParentId is the 5th column
             const parentIdCell = row.querySelector('#ParentId');
             if (parentIdCell && parentIdCell.textContent) {
-                replaceCellWithLink(parentIdCell, '/transcript/message/' + parentIdCell.textContent, parentIdCell.textContent);
+                replaceCellWithLink(parentIdCell, knownPaths.transcriptMessage + parentIdCell.textContent, parentIdCell.textContent);
             }
         }
 
@@ -479,11 +532,17 @@
         decorateRows();
     }
 
-    if (document.location.pathname.endsWith('/admin/recent-flags')) {
+    function decorateModPopup() {
+        appendCss(`div.popup a[href^='${knownPaths.getMessages}'].button { display:inline-block;}`);
+    }
+
+    if (document.location.pathname.endsWith(knownPaths.recentFlags)) {
         recentFlags()
-    } else if (document.location.pathname.endsWith('/admin')) {
+    } else if (document.location.pathname.endsWith(knownPaths.admin)) {
         initAdmin()
-    } else if (document.location.pathname.indexOf('/users/get-messages/') === 0) {
+    } else if (document.location.pathname.indexOf(knownPaths.getMessages) === 0) {
         initGetMessages()
+    } else if (/^\/users\/(\d+)\//.exec(document.location.pathname)) {
+        decorateModPopup()
     }
 })();
