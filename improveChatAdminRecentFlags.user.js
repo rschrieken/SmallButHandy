@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImproveChatAdminRecentFlags
 // @namespace    https://meta.stackexchange.com/users/158100/rene
-// @version      0.9
+// @version      0.91
 // @description  Sorting and filtering for Chat Admin Recent flags
 // @author       rene
 // @match        https://chat.stackexchange.com/admin/recent-flags
@@ -13,6 +13,9 @@
 // @match        https://chat.stackexchange.com/users/*/*
 // @match        https://chat.stackoverflow.com/users/*/*
 // @match        https://chat.meta.stackexchange.com/users/*/*
+// @match        https://chat.stackexchange.com/admin/xref-user-ips/*
+// @match        https://chat.stackoverflow.com/admin/xref-user-ips/*
+// @match        https://chat.meta.stackexchange.com/admin/xref-user-ips/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=stackexchange.com
 // @updateURL    https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
 // @downloadURL  https://github.com/rschrieken/SmallButHandy/raw/master/improveChatAdminRecentFlags.user.js
@@ -26,7 +29,8 @@
         recentFlags: '/admin/recent-flags',
         getMessages: '/users/get-messages/',
         roomsInfo: '/rooms/info/',
-        transcriptMessage: '/transcript/message/'
+        transcriptMessage: '/transcript/message/',
+        xrefUserIps: '/admin/xref-user-ips/'
     }
 
     function appendToHead(element) {
@@ -532,6 +536,31 @@
         decorateRows();
     }
 
+    function initXrefUserIps() {
+        const internalIps = ["10.7.2.16", "198.252.206.71"];
+
+        function hideParent(cell) {
+            cell.parentElement.style.display = 'none';
+        }
+
+
+        const firstCellsForIp = document.querySelectorAll('tr > td:nth-child(1)');
+        let hide = false;
+        for(const cell of firstCellsForIp) {
+            if (hide) {
+                hideParent(cell);
+            }
+            if (internalIps.indexOf(cell.textContent) !== -1) {
+                hide = true;
+                hideParent(cell);
+            }
+            if (cell.firstElementChild && cell.firstElementChild.tagName === 'HR') {
+                hide = false;
+            }
+        }
+
+    }
+
     function decorateModPopup() {
         appendCss(`div.popup a[href^='${knownPaths.getMessages}'].button { display:inline-block;}`);
     }
@@ -540,8 +569,10 @@
         recentFlags()
     } else if (document.location.pathname.endsWith(knownPaths.admin)) {
         initAdmin()
-    } else if (document.location.pathname.indexOf(knownPaths.getMessages) === 0) {
+    } else if (document.location.pathname.startsWith(knownPaths.getMessages)) {
         initGetMessages()
+    } else if (document.location.pathname.startsWith(knownPaths.xrefUserIps)) {
+        initXrefUserIps()
     } else if (/^\/users\/(\d+)\//.exec(document.location.pathname)) {
         decorateModPopup()
     }
